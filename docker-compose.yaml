@@ -12,39 +12,58 @@ services:
         ros_mirror: ros.mirror.robotnik.ws
     network_mode: host
     privileged: true
-    gpus: all
+    
+    # 1. Aseguramos el runtime
+    runtime: nvidia
+    
     environment:
-      ROS_DOMAIN_ID: 0
-      DISPLAY: ${DISPLAY}  # Forward X11 display
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics,display  # Allow GPU access
-      NVIDIA_VISIBLE_DEVICES: all  # Expose all GPUs
-      QT_X11_NO_MITSHM: 1
+      - ROS_DOMAIN_ID=0
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      # 2. Configuración GPU Completa
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      # 3. Variables OBLIGATORIAS para tu Laptop (Render Offload)
+      - __NV_PRIME_RENDER_OFFLOAD=1
+      - __GLX_VENDOR_LIBRARY_NAME=nvidia
+    
+    volumes:
+      # 4. CORREGIDO: Esto debe ser un volumen, NO un device
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      
     devices:
-      - "/dev/dri:/dev/dri"  # Allow OpenGL rendering
-      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /dev/dri:/dev/dri
+
   robotnik_robot_spawner:
     container_name: robotnik_robot_spawner
     image: robotnik_simulation-robotnik_simulation:latest
     network_mode: host
     privileged: true
-    gpus: all
+    
+    # Runtime también aquí
+    runtime: nvidia
+    
     env_file:
       - env/robot.env
     environment:
-      ROS_DOMAIN_ID: 0
-      DISPLAY: ${DISPLAY}  # Forward X11 display
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics,display # Allow GPU access
-      NVIDIA_VISIBLE_DEVICES: all  # Expose all GPUs
-      ROS_BU_LAUNCH: spawn_robot.launch.py robot:=$${ROBOT} robot_model:=$${ROBOT_MODEL} has_arm:=$${HAS_ARM}
-      QT_X11_NO_MITSHM: 1
+      - ROS_DOMAIN_ID=0
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - ROS_BU_LAUNCH=spawn_robot.launch.py robot:=$${ROBOT} robot_model:=$${ROBOT_MODEL} has_arm:=$${HAS_ARM}
+      # También aquí por seguridad si este nodo necesita contexto gráfico
+      - __NV_PRIME_RENDER_OFFLOAD=1
+      - __GLX_VENDOR_LIBRARY_NAME=nvidia
+      
+    volumes:
+      # CORREGIDO: Movido de devices a volumes
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ./entrypoint.sh:/usr/local/bin/ros_entrypoint.sh
+      
     devices:
-      - "/dev/dri:/dev/dri"  # Allow OpenGL rendering
-      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /dev/dri:/dev/dri
+      
     depends_on:
       robotnik_simulator:
         condition: service_healthy
-
-    volumes:
-      - ./entrypoint.sh:/usr/local/bin/ros_entrypoint.sh
-   
-
